@@ -1,0 +1,10 @@
+env
+.env
+/env
+/.env
+./.env
+
+
+postgres_configs
+.postgres_configs
+./postgres_configs
