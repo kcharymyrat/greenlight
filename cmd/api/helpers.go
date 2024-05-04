@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/kcharymyrat/greenlight/internal/validator"
 )
 
 type envelope map[string]interface{}
@@ -24,7 +26,7 @@ func (app *application) readIdParam(r *http.Request) (int64, error) {
 }
 
 func (app *application) writeJSON(w http.ResponseWriter, status int, data envelope, headers http.Header) error {
-	dataJSON, err := json.Marshal(data)
+	dataJSON, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return nil
 	}
@@ -83,4 +85,36 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst int
 		return errors.New("body must only contain a single JSON value")
 	}
 	return nil
+}
+
+func (app *application) readString(qs url.Values, key string, defaultValue string) string {
+	res := qs.Get(key)
+
+	if res == "" {
+		return defaultValue
+	}
+	return res
+}
+
+func (app *application) readCSV(qs url.Values, key string, defaultValue []string) []string {
+	res := qs.Get(key)
+	if res == "" {
+		return defaultValue
+	}
+
+	return strings.Split(res, ",")
+}
+
+func (app *application) readInt(qs url.Values, key string, defaultValue int, v *validator.Validator) int {
+	res := qs.Get(key)
+	if res == "" {
+		return defaultValue
+	}
+
+	resInt, err := strconv.Atoi(res)
+	if err != nil {
+		v.AddError(key, "must be an integer value")
+		return defaultValue
+	}
+	return resInt
 }

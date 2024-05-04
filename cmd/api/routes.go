@@ -13,6 +13,7 @@ func (app *application) routes() (mux *chi.Mux) {
 
 	// Map the appropriate handler for the request based on the request path
 	mux.Get("/v1/healthcheck", app.healthcheckHandler)
+	mux.Get("/v1/movies", app.listMoviesHandler)
 	mux.Post("/v1/movies", app.createMovieHandler)
 	mux.Get("/v1/movies/{id}", app.showMovieHandler)
 	mux.Patch("/v1/movies/{id}", app.updateMovieHandler)
