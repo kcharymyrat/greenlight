@@ -15,7 +15,7 @@ func (app *application) routes() (mux *chi.Mux) {
 	mux.Get("/v1/healthcheck", app.healthcheckHandler)
 	mux.Post("/v1/movies", app.createMovieHandler)
 	mux.Get("/v1/movies/{id}", app.showMovieHandler)
-	mux.Put("/v1/movies/{id}", app.updateMovieHandler)
+	mux.Patch("/v1/movies/{id}", app.updateMovieHandler)
 	mux.Delete("/v1/movies/{id}", app.deleteMovieHandler)
 
 	return
