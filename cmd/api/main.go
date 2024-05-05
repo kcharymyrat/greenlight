@@ -13,6 +13,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/kcharymyrat/greenlight/internal/data"
+	"github.com/kcharymyrat/greenlight/internal/jsonlog"
 	_ "github.com/lib/pq"
 )
 
@@ -31,7 +32,7 @@ type config struct {
 
 type application struct {
 	config config
-	logger *log.Logger
+	logger *jsonlog.Logger
 	models data.Models
 }
 
@@ -39,7 +40,7 @@ func main() {
 	var cfg config
 
 	// Create a new logger
-	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
+	logger := jsonlog.NewLogger(os.Stdout, jsonlog.LevelInfo)
 
 	// Set appropriate env vars to config struct
 	setConfigWithEnvVars(&cfg, logger)
@@ -56,10 +57,10 @@ func main() {
 	// Establish db connection
 	db, err := openDB(cfg)
 	if err != nil {
-		logger.Fatal(err)
+		logger.PrintFatal(err, nil)
 	}
 	defer db.Close()
-	logger.Printf("database connection pool established")
+	logger.PrintInfo("database connection pool established", nil)
 
 	// Dependency Injection
 	app := &application{
@@ -75,38 +76,52 @@ func main() {
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),
 		Handler:      mux,
+		ErrorLog:     log.New(logger, "", 0),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 
 	// Start the server
-	logger.Printf("starting %s server on %s", cfg.env, srv.Addr)
+	properties := map[string]string{
+		"addr": srv.Addr,
+		"env":  cfg.env,
+	}
+	logger.PrintInfo("starting server", properties)
 	err = srv.ListenAndServe()
-	logger.Fatal(err)
+	logger.PrintFatal(err, nil)
 }
 
-func setConfigWithEnvVars(cfg *config, logger *log.Logger) {
+func setConfigWithEnvVars(cfg *config, logger *jsonlog.Logger) {
 	// Load envrimental variable
 	err := godotenv.Load()
 	if err != nil {
-		logger.Fatalf("Error loading .env file: %v\n", err)
+		message := fmt.Sprintf("Error loading (environmental variables) .env file: %v\n", err)
+		logger.PrintFatal(err, map[string]string{"msg": message})
 	}
+
 	dsn := os.Getenv("GREENLIGHT_DB_DSN")
 	if dsn == "" {
-		logger.Fatalf("Error: GREENLIGHT_DB_DSN environment variable not set in .env file. %v", err)
+		message := fmt.Sprintf("Error: GREENLIGHT_DB_DSN environment variable not set in .env file. %v", err)
+		logger.PrintFatal(err, map[string]string{"msg": message})
 	}
+
 	maxOpenConns, err := strconv.Atoi(os.Getenv("MAX_OPEN_CONNS"))
 	if err != nil {
-		logger.Fatalf("Error converting MAX_OPEN_CONNS to integer: %v\n", err)
+		message := fmt.Sprintf("Error converting MAX_OPEN_CONNS to integer: %v\n", err)
+		logger.PrintFatal(err, map[string]string{"msg": message})
 	}
+
 	maxIdleConns, err := strconv.Atoi(os.Getenv("MAX_IDLE_CONNS"))
 	if err != nil {
-		logger.Fatalf("Error converting MAX_IDLE_CONNS to integer: %v\n", err)
+		message := fmt.Sprintf("Error converting MAX_IDLE_CONNS to integer: %v\n", err)
+		logger.PrintFatal(err, map[string]string{"msg": message})
 	}
+
 	maxIdleTime := os.Getenv("MAX_IDLE_TIME")
 	if dsn == "" {
-		logger.Fatalf("Error: GREENLIGHT_DB_DSN environment variable not set in .env file. %v", err)
+		message := fmt.Sprintf("Error: GREENLIGHT_DB_DSN environment variable not set in .env file. %v", err)
+		logger.PrintFatal(err, map[string]string{"msg": message})
 	}
 
 	cfg.db.dsn = dsn
