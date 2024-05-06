@@ -1,12 +1,14 @@
 package main
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 )
 
-func (app *application) routes() (mux *chi.Mux) {
+func (app *application) routes() http.Handler {
 	// initialize new router (mux)
-	mux = chi.NewRouter()
+	mux := chi.NewRouter()
 
 	mux.NotFound(app.notFoundResponse)
 	mux.MethodNotAllowed(app.methodNotAllowedResponse)
@@ -19,5 +21,5 @@ func (app *application) routes() (mux *chi.Mux) {
 	mux.Patch("/v1/movies/{id}", app.updateMovieHandler)
 	mux.Delete("/v1/movies/{id}", app.deleteMovieHandler)
 
-	return
+	return app.recoverPanic(mux)
 }
