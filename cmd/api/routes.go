@@ -21,5 +21,5 @@ func (app *application) routes() http.Handler {
 	mux.Patch("/v1/movies/{id}", app.updateMovieHandler)
 	mux.Delete("/v1/movies/{id}", app.deleteMovieHandler)
 
-	return app.recoverPanic(mux)
+	return app.recoverPanic(app.rateLimit(mux))
 }
