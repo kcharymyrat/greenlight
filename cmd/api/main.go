@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"log"
-	"net/http"
 	"os"
 	"strconv"
 	"time"
@@ -79,27 +77,10 @@ func main() {
 		models: data.NewModel(db),
 	}
 
-	// create router (servemux) for the request, with appropriate handler mapping
-	mux := app.routes()
-
-	// create a new server
-	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.port),
-		Handler:      mux,
-		ErrorLog:     log.New(logger, "", 0),
-		IdleTimeout:  time.Minute,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
+	err = app.serve()
+	if err != nil {
+		logger.PrintFatal(err, nil)
 	}
-
-	// Start the server
-	properties := map[string]string{
-		"addr": srv.Addr,
-		"env":  cfg.env,
-	}
-	logger.PrintInfo("starting server", properties)
-	err = srv.ListenAndServe()
-	logger.PrintFatal(err, nil)
 }
 
 func setConfigWithEnvVars(cfg *config, logger *jsonlog.Logger) {
