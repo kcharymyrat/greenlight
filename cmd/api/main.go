@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/kcharymyrat/greenlight/internal/data"
 	"github.com/kcharymyrat/greenlight/internal/jsonlog"
+	"github.com/kcharymyrat/greenlight/internal/mailer"
 	_ "github.com/lib/pq"
 )
 
@@ -31,12 +33,21 @@ type config struct {
 		burst   int
 		enabled bool
 	}
+	smtp struct {
+		host     string
+		port     int
+		username string
+		password string
+		sender   string
+	}
 }
 
 type application struct {
 	config config
 	logger *jsonlog.Logger
 	models data.Models
+	mailer mailer.Mailer
+	wg     sync.WaitGroup
 }
 
 func main() {
@@ -60,6 +71,12 @@ func main() {
 	flag.Float64Var(&cfg.limiter.rps, "limiter-rps", 2, "Rate limiter maximum requests per second")
 	flag.IntVar(&cfg.limiter.burst, "limiter-burst", 4, "Rate limiter maximum burst")
 	flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", true, "Enable rate limiter")
+
+	flag.StringVar(&cfg.smtp.host, "smtp-host", cfg.smtp.host, "SMTP host")
+	flag.IntVar(&cfg.smtp.port, "smtp-port", cfg.smtp.port, "SMTP port")
+	flag.StringVar(&cfg.smtp.username, "smtp-username", cfg.smtp.username, "SMTP username")
+	flag.StringVar(&cfg.smtp.password, "smtp-password", cfg.smtp.password, "SMTP password")
+	flag.StringVar(&cfg.smtp.sender, "smtp-sender", cfg.smtp.sender, "SMTP sender")
 	flag.Parse()
 
 	// Establish db connection
@@ -75,6 +92,7 @@ func main() {
 		config: cfg,
 		logger: logger,
 		models: data.NewModel(db),
+		mailer: mailer.New(cfg.smtp.host, cfg.smtp.port, cfg.smtp.username, cfg.smtp.password, cfg.smtp.sender),
 	}
 
 	err = app.serve()
@@ -87,13 +105,13 @@ func setConfigWithEnvVars(cfg *config, logger *jsonlog.Logger) {
 	// Load envrimental variable
 	err := godotenv.Load()
 	if err != nil {
-		message := fmt.Sprintf("Error loading (environmental variables) .env file: %v\n", err)
+		message := fmt.Sprintf("Error loading (environmental variables): %v\n", err)
 		logger.PrintFatal(err, map[string]string{"msg": message})
 	}
 
 	dsn := os.Getenv("GREENLIGHT_DB_DSN")
 	if dsn == "" {
-		message := fmt.Sprintf("Error: GREENLIGHT_DB_DSN environment variable not set in .env file. %v", err)
+		message := fmt.Sprintf("Error: GREENLIGHT_DB_DSN environment variable not set. %v", err)
 		logger.PrintFatal(err, map[string]string{"msg": message})
 	}
 
@@ -110,8 +128,38 @@ func setConfigWithEnvVars(cfg *config, logger *jsonlog.Logger) {
 	}
 
 	maxIdleTime := os.Getenv("MAX_IDLE_TIME")
-	if dsn == "" {
-		message := fmt.Sprintf("Error: GREENLIGHT_DB_DSN environment variable not set in .env file. %v", err)
+	if maxIdleTime == "" {
+		message := fmt.Sprintf("Error: MAX_IDLE_TIME environment variable not set. %v", err)
+		logger.PrintFatal(err, map[string]string{"msg": message})
+	}
+
+	mailTrapHost := os.Getenv("MAILTRAP_HOST")
+	if mailTrapHost == "" {
+		message := fmt.Sprintf("Error: MAILTRAP_HOST environment variable not set. %v", err)
+		logger.PrintFatal(err, map[string]string{"msg": message})
+	}
+
+	mailTrapPort, err := strconv.Atoi(os.Getenv("MAILTRAP_PORT"))
+	if err != nil {
+		message := fmt.Sprintf("Error converting MAILTRAP_PORT to integer: %v\n", err)
+		logger.PrintFatal(err, map[string]string{"msg": message})
+	}
+
+	mailTrapUsername := os.Getenv("MAILTRAP_USERNAME")
+	if mailTrapUsername == "" {
+		message := fmt.Sprintf("Error: MAILTRAP_USERNAME environment variable not set. %v", err)
+		logger.PrintFatal(err, map[string]string{"msg": message})
+	}
+
+	mailTrapPassword := os.Getenv("MAILTRAP_PASSWORD")
+	if mailTrapPassword == "" {
+		message := fmt.Sprintf("Error: MAILTRAP_PASSWORD environment variable not set. %v", err)
+		logger.PrintFatal(err, map[string]string{"msg": message})
+	}
+
+	mailTrapSender := os.Getenv("MAILTRAP_SENDER")
+	if mailTrapSender == "" {
+		message := fmt.Sprintf("Error: MAILTRAP_SENDER environment variable not set. %v", err)
 		logger.PrintFatal(err, map[string]string{"msg": message})
 	}
 
@@ -119,6 +167,11 @@ func setConfigWithEnvVars(cfg *config, logger *jsonlog.Logger) {
 	cfg.db.maxOpenConns = maxOpenConns
 	cfg.db.maxIdleConns = maxIdleConns
 	cfg.db.maxIdleTime = maxIdleTime
+	cfg.smtp.host = mailTrapHost
+	cfg.smtp.port = mailTrapPort
+	cfg.smtp.username = mailTrapUsername
+	cfg.smtp.password = mailTrapPassword
+	cfg.smtp.sender = mailTrapSender
 }
 
 func openDB(cfg config) (*sql.DB, error) {
