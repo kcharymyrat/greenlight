@@ -16,11 +16,11 @@ func (app *application) routes() http.Handler {
 	// Map the appropriate handler for the request based on the request path
 	mux.Get("/v1/healthcheck", app.healthcheckHandler)
 
-	mux.Get("/v1/movies", app.requireActivatedUser(app.listMoviesHandler))
-	mux.Post("/v1/movies", app.requireActivatedUser(app.createMovieHandler))
-	mux.Get("/v1/movies/{id}", app.requireActivatedUser(app.showMovieHandler))
-	mux.Patch("/v1/movies/{id}", app.requireActivatedUser(app.updateMovieHandler))
-	mux.Delete("/v1/movies/{id}", app.requireActivatedUser(app.deleteMovieHandler))
+	mux.Get("/v1/movies", app.requirePermission("movies:read", app.listMoviesHandler))
+	mux.Post("/v1/movies", app.requirePermission("movies:write", app.createMovieHandler))
+	mux.Get("/v1/movies/{id}", app.requirePermission("movies:read", app.showMovieHandler))
+	mux.Patch("/v1/movies/{id}", app.requirePermission("movies:write", app.updateMovieHandler))
+	mux.Delete("/v1/movies/{id}", app.requirePermission("movies:write", app.deleteMovieHandler))
 
 	mux.Post("/v1/users", app.registerUserHandler)
 	mux.Put("/v1/users/activated", app.activateUserHandler)
