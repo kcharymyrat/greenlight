@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -39,6 +40,9 @@ type config struct {
 		username string
 		password string
 		sender   string
+	}
+	cors struct {
+		trustedOrigins []string
 	}
 }
 
@@ -77,6 +81,13 @@ func main() {
 	flag.StringVar(&cfg.smtp.username, "smtp-username", cfg.smtp.username, "SMTP username")
 	flag.StringVar(&cfg.smtp.password, "smtp-password", cfg.smtp.password, "SMTP password")
 	flag.StringVar(&cfg.smtp.sender, "smtp-sender", cfg.smtp.sender, "SMTP sender")
+	flag.Func("cors-trusted-origins", "Trusted CORS origins (space separated)", func(val string) error {
+		trustedOriginsInput := strings.Fields(val)
+		if len(trustedOriginsInput) > 0 {
+			cfg.cors.trustedOrigins = trustedOriginsInput
+		}
+		return nil
+	})
 	flag.Parse()
 
 	// Establish db connection
@@ -163,6 +174,8 @@ func setConfigWithEnvVars(cfg *config, logger *jsonlog.Logger) {
 		logger.PrintFatal(err, map[string]string{"msg": message})
 	}
 
+	corsTrustedOrigins := os.Getenv("CORS_TRUSTED_ORIGINS")
+
 	cfg.db.dsn = dsn
 	cfg.db.maxOpenConns = maxOpenConns
 	cfg.db.maxIdleConns = maxIdleConns
@@ -172,6 +185,7 @@ func setConfigWithEnvVars(cfg *config, logger *jsonlog.Logger) {
 	cfg.smtp.username = mailTrapUsername
 	cfg.smtp.password = mailTrapPassword
 	cfg.smtp.sender = mailTrapSender
+	cfg.cors.trustedOrigins = strings.Fields(corsTrustedOrigins)
 }
 
 func openDB(cfg config) (*sql.DB, error) {

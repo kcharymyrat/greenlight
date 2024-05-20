@@ -27,5 +27,5 @@ func (app *application) routes() http.Handler {
 
 	mux.Post("/v1/tokens/authentication", app.createAuthenticationTokenHandler)
 
-	return app.recoverPanic(app.rateLimit(app.authenticate(mux)))
+	return app.recoverPanic(app.enableCORS(app.rateLimit(app.authenticate(mux))))
 }
