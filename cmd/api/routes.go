@@ -1,6 +1,7 @@
 package main
 
 import (
+	"expvar"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -27,5 +28,8 @@ func (app *application) routes() http.Handler {
 
 	mux.Post("/v1/tokens/authentication", app.createAuthenticationTokenHandler)
 
-	return app.recoverPanic(app.enableCORS(app.rateLimit(app.authenticate(mux))))
+	// mux.Get("/debug/vars", expvar.Handler().ServeHTTP)
+	mux.Get("/debug/vars", app.requirePermission("metrics:view", expvar.Handler().ServeHTTP))
+
+	return app.metrics(app.recoverPanic(app.enableCORS(app.rateLimit(app.authenticate(mux)))))
 }
