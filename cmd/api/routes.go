@@ -25,8 +25,11 @@ func (app *application) routes() http.Handler {
 
 	mux.Post("/v1/users", app.registerUserHandler)
 	mux.Put("/v1/users/activated", app.activateUserHandler)
+	mux.Put("/v1/users/password", app.updateUserPasswordHandler)
 
 	mux.Post("/v1/tokens/authentication", app.createAuthenticationTokenHandler)
+	mux.Post("/v1/tokens/activation", app.createActivationTokenHandler)
+	mux.Post("/v1/tokens/password-reset", app.createPasswordResetTokenHandler)
 
 	// mux.Get("/debug/vars", expvar.Handler().ServeHTTP)
 	mux.Get("/debug/vars", app.requirePermission("metrics:view", expvar.Handler().ServeHTTP))
